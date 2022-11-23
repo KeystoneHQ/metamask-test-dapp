@@ -1,3 +1,4 @@
+/* eslint-disable no-alert */
 import MetaMaskOnboarding from '@metamask/onboarding';
 // eslint-disable-next-line camelcase
 import {
@@ -9,6 +10,7 @@ import {
 } from 'eth-sig-util';
 import { ethers } from 'ethers';
 import { toChecksumAddress } from 'ethereumjs-util';
+import { JsonRpcProvider } from '@ethersproject/providers';
 import {
   hstBytecode,
   hstAbi,
@@ -35,6 +37,7 @@ const forwarderOrigin =
   currentUrl.hostname === 'localhost' ? 'http://localhost:9010' : undefined;
 const urlSearchParams = new URLSearchParams(window.location.search);
 const deployedContractAddress = urlSearchParams.get('contract');
+let ethProvider = new JsonRpcProvider('https://eth.bd.evmos.dev:8545');
 
 const { isMetaMaskInstalled } = MetaMaskOnboarding;
 
@@ -153,10 +156,21 @@ const gasPriceDiv = document.getElementById('gasPriceDiv');
 const maxFeeDiv = document.getElementById('maxFeeDiv');
 const maxPriorityDiv = document.getElementById('maxPriorityDiv');
 const submitFormButton = document.getElementById('submitForm');
+const sendFormResult = document.getElementById('sendFormResult');
+const mintscanAccount = document.getElementById('mintscanAccount');
 
 // Miscellaneous
 const addEthereumChain = document.getElementById('addEthereumChain');
 const switchEthereumChain = document.getElementById('switchEthereumChain');
+
+const getKeplrAccount = async () => {
+  const chainId =
+    networkDiv.innerHTML === '9000' ? 'evmos_9000-4' : 'evmos_9001-2';
+  return {
+    chainId,
+    key: await window.keplr.getKey(chainId),
+  };
+};
 
 const initialize = async () => {
   try {
@@ -849,10 +863,13 @@ const initialize = async () => {
         {
           from: accounts[0],
           to: toDiv.value,
-          value: amount.value,
-          gasPrice: gasPrice.value,
+          value: `0x${Buffer.from(amount.value).toString('hex')}`,
+          gasPrice: `0x${
+            gasPrice.value ? Buffer.from(gasPrice.value).toString('hex') : 0
+          }`,
+          gasLimit: `0x${Buffer.from('10000').toString('hex')}`,
           type: type.value,
-          data: data.value,
+          data: data.value || undefined,
         },
       ];
     } else {
@@ -860,19 +877,59 @@ const initialize = async () => {
         {
           from: accounts[0],
           to: toDiv.value,
-          value: amount.value,
-          maxFeePerGas: maxFee.value,
-          maxPriorityFeePerGas: maxPriority.value,
+          value: `0x${Buffer.from(amount.value).toString('hex')}`,
+          maxFeePerGas: `0x${
+            maxFee.value ? Buffer.from(maxFee.value).toString('hex') : 0
+          }`,
+          maxPriorityFeePerGas: `0x${
+            maxPriority.value
+              ? Buffer.from(maxPriority.value).toString('hex')
+              : 0
+          }`,
+          gasLimit: `0x${Buffer.from('10000').toString('hex')}`,
           type: type.value,
-          data: data.value,
+          data: data.value || undefined,
         },
       ];
     }
-    const result = await ethereum.request({
-      method: 'eth_sendTransaction',
-      params,
-    });
-    console.log(result);
+
+    // const result = await ethereum.request({
+    //   method: 'eth_sendTransaction',
+    //   params,
+    // });
+    sendFormResult.innerHTML = 'Loading....';
+    const account = await getKeplrAccount();
+    const nonce = await ethProvider.getTransactionCount(accounts[0]);
+    params[0].nonce = nonce;
+    params[0].chainId = Number(networkDiv.innerHTML);
+    if (type.value === '0x0') {
+      const gasLimit = await ethProvider.estimateGas(params[0]);
+      params[0].gasLimit = gasLimit.toHexString();
+      const gasFee = await ethProvider.getFeeData();
+      params[0].gasPrice = gasFee.maxFeePerGas.toHexString();
+      gasPrice.setAttribute('value', gasFee.maxFeePerGas);
+    } else {
+      const gasFee = await ethProvider.getFeeData();
+      params[0].maxFeePerGas = gasFee.maxFeePerGas.toHexString();
+      maxFee.setAttribute('value', gasFee.maxFeePerGas);
+      params[0].maxPriorityFeePerGas =
+        gasFee.maxPriorityFeePerGas.toHexString();
+      const gasLimit = await ethProvider.estimateGas(params[0]);
+      params[0].gasLimit = gasLimit.toHexString();
+      maxPriority.setAttribute('value', gasFee.maxPriorityFeePerGas);
+    }
+    try {
+      const sign = await window.keplr.signEthereum(
+        account.chainId,
+        account.key.bech32Address,
+        JSON.stringify(params[0]),
+        'transaction',
+      );
+      const res = await ethProvider.sendTransaction(sign);
+      sendFormResult.innerHTML = res.hash;
+    } catch (err) {
+      sendFormResult.innerHTML = err.message;
+    }
   };
 
   /**
@@ -884,11 +941,18 @@ const initialize = async () => {
       // const msgHash = keccak256(msg)
       const msg =
         '0x879a053d4800c6354e76c7985a865d2922c82fb5b3f4577b2fe08b998954f2e0';
-      const ethResult = await ethereum.request({
-        method: 'eth_sign',
-        params: [accounts[0], msg],
-      });
-      ethSignResult.innerHTML = JSON.stringify(ethResult);
+      // const ethResult = await ethereum.request({
+      //   method: 'eth_sign',
+      //   params: [accounts[0], msg],
+      // });
+      const account = await getKeplrAccount();
+      const sign = await window.keplr.signEthereum(
+        account.chainId,
+        account.key.bech32Address,
+        Buffer.from(msg.slice(2), 'hex'),
+        'message',
+      );
+      ethSignResult.innerHTML = `0x${Buffer.from(sign).toString('hex')}`;
     } catch (err) {
       console.error(err);
       ethSign.innerHTML = `Error: ${err.message}`;
@@ -901,13 +965,20 @@ const initialize = async () => {
   personalSign.onclick = async () => {
     const exampleMessage = 'Example `personal_sign` message';
     try {
-      const from = accounts[0];
-      const msg = `0x${Buffer.from(exampleMessage, 'utf8').toString('hex')}`;
-      const sign = await ethereum.request({
-        method: 'personal_sign',
-        params: [msg, from, 'Example password'],
-      });
-      personalSignResult.innerHTML = sign;
+      // const from = accounts[0];
+      // const msg = `0x${Buffer.from(exampleMessage, 'utf8').toString('hex')}`;
+      // const sign = await ethereum.request({
+      //   method: 'personal_sign',
+      //   params: [msg, from, 'Example password'],
+      // });
+      const account = await getKeplrAccount();
+      const sign = await window.keplr.signEthereum(
+        account.chainId,
+        account.key.bech32Address,
+        exampleMessage,
+        'message',
+      );
+      personalSignResult.innerHTML = `0x${Buffer.from(sign).toString('hex')}`;
       personalSignVerify.disabled = false;
     } catch (err) {
       console.error(err);
@@ -1068,12 +1139,21 @@ const initialize = async () => {
       },
     };
     try {
-      const from = accounts[0];
-      const sign = await ethereum.request({
-        method: 'eth_signTypedData_v3',
-        params: [from, JSON.stringify(msgParams)],
-      });
-      signTypedDataV3Result.innerHTML = sign;
+      // const from = accounts[0];
+      // const sign = await ethereum.request({
+      //   method: 'eth_signTypedData_v3',
+      //   params: [from, JSON.stringify(msgParams)],
+      // });
+      const account = await getKeplrAccount();
+      const sign = await window.keplr.signEthereum(
+        account.chainId,
+        account.key.bech32Address,
+        JSON.stringify(msgParams),
+        'eip-712',
+      );
+      signTypedDataV3Result.innerHTML = `0x${Buffer.from(sign).toString(
+        'hex',
+      )}`;
       signTypedDataV3Verify.disabled = false;
     } catch (err) {
       console.error(err);
@@ -1203,12 +1283,21 @@ const initialize = async () => {
       },
     };
     try {
-      const from = accounts[0];
-      const sign = await ethereum.request({
-        method: 'eth_signTypedData_v4',
-        params: [from, JSON.stringify(msgParams)],
-      });
-      signTypedDataV4Result.innerHTML = sign;
+      // const from = accounts[0];
+      // const sign = await ethereum.request({
+      //   method: 'eth_signTypedData_v4',
+      //   params: [from, JSON.stringify(msgParams)],
+      // });
+      const account = await getKeplrAccount();
+      const sign = await window.keplr.signEthereum(
+        account.chainId,
+        account.key.bech32Address,
+        JSON.stringify(msgParams),
+        'eip-712',
+      );
+      signTypedDataV4Result.innerHTML = `0x${Buffer.from(sign).toString(
+        'hex',
+      )}`;
       signTypedDataV4Verify.disabled = false;
     } catch (err) {
       console.error(err);
@@ -1328,8 +1417,18 @@ const initialize = async () => {
     }
   }
 
-  function handleNewNetwork(networkId) {
+  async function handleNewNetwork(networkId) {
+    if (Number(networkId) !== 9000 && Number(networkId) !== 9001) {
+      alert('The current chain is not Evmos.');
+    }
+    if (Number(networkId) === 9001) {
+      ethProvider = new JsonRpcProvider('https://eth.bd.evmos.org:8545');
+    }
     networkDiv.innerHTML = networkId;
+    const keplrAccount = await getKeplrAccount();
+    mintscanAccount.innerHTML = keplrAccount.key.bech32Address;
+    mintscanAccount.href =
+      mintscanAccount.dataset.href + keplrAccount.key.bech32Address;
   }
 
   async function getNetworkAndChainId() {

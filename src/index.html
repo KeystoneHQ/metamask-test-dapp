@@ -49,6 +49,7 @@
             <p class="info-text alert alert-primary">
               Network: <span id="network"></span>
             </p>
+            <p>Add Evmos Network: <a href="https://chainlist.org/zh" target="_blank">ChainList</a></p>
           </div>
 
           <div class="col-xl-4 col-lg-6 col-md-12 col-sm-12 col-12">
@@ -458,7 +459,7 @@
             <div class="card full-width">
               <div class="card-body">
                 <h4>
-                  Eth Sign
+                  Eth Sign (Keplr)
                 </h4>
 
                 <button
@@ -481,7 +482,7 @@
             <div class="card full-width">
               <div class="card-body">
                 <h4>
-                  Personal Sign
+                  Personal Sign (Keplr)
                 </h4>
 
                 <button
@@ -521,8 +522,10 @@
             <div class="card full-width">
               <div class="card-body">
                 <h4>
-                  Sign Typed Data
+                  Sign Typed Data (Unsupported)
                 </h4>
+
+                <p>ChainId is required in Keplr.</p>
 
                 <button
                   class="btn btn-primary btn-lg btn-block mb-3"
@@ -557,7 +560,7 @@
             <div class="card full-width">
               <div class="card-body">
                 <h4>
-                  Sign Typed Data V3
+                  Sign Typed Data V3 (Keplr)
                 </h4>
 
                 <button
@@ -594,7 +597,7 @@
             <div class="card full-width">
               <div class="card-body">
                 <h4>
-                  Sign Typed Data V4
+                  Sign Typed Data V4 (Keplr)
                 </h4>
 
                 <button
@@ -660,7 +663,7 @@
             <div class="card">
               <div class="card-body">
                 <h4 class="card-title">
-                  Send form
+                  Send form (Keplr)
                 </h4>
                 <div class="form-group">
                   <label>From</label>
@@ -676,6 +679,7 @@
                     class="form-control"
                     type="text"
                     id="toInput"
+                    value="0xee7b8F17E041AE5126A403Ec4cD5FE344b51d7EB"
                   />
                 </div>
                 <div class="form-group">
@@ -684,13 +688,14 @@
                     class="form-control"
                     type="text"
                     id="amountInput"
+                    value="500000"
                   />
                 </div>
                 <div class="form-group">
                   <label>Type</label>
                   <select class="browser-default custom-select" id="typeInput">
-                    <option value="0x0">0x0</option>
-                    <option value="0x2">0x2</option>
+                    <option value="0x0">Legacy</option>
+                    <option value="0x2">EIP1559</option>
                   </select>
                 </div>
                 <div class="form-group" id="gasPriceDiv">
@@ -698,6 +703,7 @@
                   <input
                     class="form-control"
                     type="text"
+                    readonly
                     id="gasInput"
                   />
                 </div>
@@ -706,6 +712,7 @@
                   <input
                     class="form-control"
                     type="text"
+                    readonly
                     id="maxFeeInput"
                   />
                 </div>
@@ -714,6 +721,7 @@
                   <input
                     class="form-control"
                     type="text"
+                    readonly
                     id="maxPriorityFeeInput"
                   />
                 </div>
@@ -731,6 +739,13 @@
                 >
                   Submit
                 </button>
+                <p class="info-text alert alert-warning">
+                  Result:
+                  <span id="sendFormResult"></span>
+                </p>
+                <p>
+                  MINTSCAN Testnet: <a data-href="https://testnet.mintscan.io/evmos-testnet/account/" target="_blank" id="mintscanAccount"></a>
+                </p>
               </div>
             </div>
           </div>

@@ -11,6 +11,7 @@ import {
 import { ethers } from 'ethers';
 import { toChecksumAddress } from 'ethereumjs-util';
 import { JsonRpcProvider } from '@ethersproject/providers';
+import { serializeTransaction } from 'ethers/lib/utils';
 import {
   hstBytecode,
   hstAbi,
@@ -887,7 +888,7 @@ const initialize = async () => {
               : 0
           }`,
           gasLimit: `0x${Buffer.from('10000').toString('hex')}`,
-          type: Number(type.value.replace(/^0x/, '')),
+          type: Number(type.value.replace('0x', '')),
           data: data.value || undefined,
         },
       ];
@@ -919,13 +920,28 @@ const initialize = async () => {
       maxPriority.setAttribute('value', gasFee.maxPriorityFeePerGas);
     }
     try {
-      const sign = await window.keplr.signEthereum(
+      const sig = await window.keplr.signEthereum(
         account.chainId,
         account.key.bech32Address,
         JSON.stringify(params[0]),
         'transaction',
       );
-      const res = await ethProvider.sendTransaction(sign);
+      const signedTx = serializeTransaction(
+        {
+          to: params[0].to,
+          nonce: params[0].nonce,
+          gasLimit: params[0].gasLimit,
+          gasPrice: params[0].gasPrice,
+          data: params[0].data,
+          value: params[0].value,
+          chainId: params[0].chainId,
+        },
+        Buffer.concat([
+          Buffer.from(sig).slice(0, 64),
+          Buffer.from('1b', 'hex'),
+        ]),
+      );
+      const res = await ethProvider.sendTransaction(signedTx);
       sendFormResult.innerHTML = res.hash;
     } catch (err) {
       console.error(err);

@@ -861,14 +861,14 @@ const initialize = async () => {
     if (type.value === '0x0') {
       params = [
         {
-          from: accounts[0],
+          // from: accounts[0],
           to: toDiv.value,
           value: `0x${Buffer.from(amount.value).toString('hex')}`,
           gasPrice: `0x${
             gasPrice.value ? Buffer.from(gasPrice.value).toString('hex') : 0
           }`,
           gasLimit: `0x${Buffer.from('10000').toString('hex')}`,
-          type: type.value,
+          type: 0,
           data: data.value || undefined,
         },
       ];
@@ -887,7 +887,7 @@ const initialize = async () => {
               : 0
           }`,
           gasLimit: `0x${Buffer.from('10000').toString('hex')}`,
-          type: type.value,
+          type: Number(type.value.replace(/^0x/, '')),
           data: data.value || undefined,
         },
       ];
@@ -928,6 +928,7 @@ const initialize = async () => {
       const res = await ethProvider.sendTransaction(sign);
       sendFormResult.innerHTML = res.hash;
     } catch (err) {
+      console.error(err);
       sendFormResult.innerHTML = err.message;
     }
   };
